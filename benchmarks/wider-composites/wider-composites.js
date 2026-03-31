@@ -2,8 +2,7 @@
   "use strict";
 
   require("../shared/composite-benchmark-lib.js");
-  const { parseCliArgs, runStandardBenchmark } =
-    globalThis.__compositeBenchmarkLib;
+  const { runStandardBenchmark } = globalThis.__compositeBenchmarkLib;
 
   // CONFIG:
   // ===============================
@@ -20,18 +19,33 @@
   // testCase = "fill-set";
   // testCase = "fill-set-reads";
   // ===============================
-  const { D } = parseCliArgs(cliArgs);
-  // ===============================
+
+  function parseWiderCliArgs(cliArgs) {
+    const values = cliArgs
+      .map((v) => parseInt(v, 10))
+      .filter((v) => isFinite(v));
+
+    const [width = 5, D = 50, N = 1] = values;
+
+    if (width < 3) throw new Error("width must be >= 3");
+    if (D < 1) throw new Error("D must be >= 1");
+    if (N < 1) throw new Error("N must be >= 1");
+
+    return { width, D, N };
+  }
+
+  const { width, D, N } = parseWiderCliArgs(cliArgs);
   var offset = Number.MAX_SAFE_INTEGER - D;
-  // ===============================
 
   function widerLoop(D, createKey, cb) {
     var obj = {};
     obj.a = 0;
     obj.b = 0;
     obj.c = 0;
-    obj.d = 0;
-    obj.e = 0;
+
+    for (var i = 3; i < width; i++) {
+      obj["p" + i] = "fixed-string-value-" + i;
+    }
 
     for (var a = 0; a < D; a++) {
       obj.a = offset + a;
@@ -39,13 +53,7 @@
         obj.b = offset + b;
         for (var c = 0; c < D; c++) {
           obj.c = offset + c;
-          for (var d = 0; d < D; d++) {
-            obj.d = offset + d;
-            for (var e = 0; e < D; e++) {
-              obj.e = offset + e;
-              cb(obj, createKey(obj));
-            }
-          }
+          cb(obj, createKey(obj));
         }
       }
     }
@@ -53,13 +61,13 @@
 
   runStandardBenchmark({
     requireFn: require,
-    cliArgs,
+    cliArgs: [String(D), String(N)],
     technique,
     testCase,
     bespokeFactoryName: "weakVec5",
     loop: widerLoop,
     expectedSize(D) {
-      return D ** 5;
+      return D ** 3;
     },
   });
 })(
