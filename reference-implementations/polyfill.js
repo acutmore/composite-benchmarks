@@ -23,8 +23,11 @@ var compositePolyfill = (() => {
   __export(index_exports, {
     Composite: () => Composite,
     arrayPrototypeMethods: () => arrayPrototypeMethods,
+    debugHashPlainObject: () => debugHashPlainObject,
+    getDebugStats: () => getDebugStats,
     install: () => install,
     mapPrototypeMethods: () => mapPrototypeMethods,
+    resetDebugStats: () => resetDebugStats,
     setPrototypeMethods: () => setPrototypeMethods
   });
 
@@ -52,6 +55,35 @@ var compositePolyfill = (() => {
     return is(a === 0 ? 0 : a, b === 0 ? 0 : b);
   }
   var EMPTY = freeze([]);
+  var debugStats = {
+    hashCompositeCalls: 0,
+    hashStoreSetCalls: 0,
+    hashStoreGetCalls: 0,
+    hashBucketsCreated: 0,
+    collisionInsertions: 0,
+    collisionChecks: 0,
+    maxBucketSize: 0
+  };
+  function resetDebugStats() {
+    debugStats.hashCompositeCalls = 0;
+    debugStats.hashStoreSetCalls = 0;
+    debugStats.hashStoreGetCalls = 0;
+    debugStats.hashBucketsCreated = 0;
+    debugStats.collisionInsertions = 0;
+    debugStats.collisionChecks = 0;
+    debugStats.maxBucketSize = 0;
+  }
+  function getDebugStats() {
+    return {
+      hashCompositeCalls: debugStats.hashCompositeCalls,
+      hashStoreSetCalls: debugStats.hashStoreSetCalls,
+      hashStoreGetCalls: debugStats.hashStoreGetCalls,
+      hashBucketsCreated: debugStats.hashBucketsCreated,
+      collisionInsertions: debugStats.collisionInsertions,
+      collisionChecks: debugStats.collisionChecks,
+      maxBucketSize: debugStats.maxBucketSize
+    };
+  }
 
   // polyfill/internal/composite-class.ts
   var __Composite__ = class {
@@ -107,6 +139,9 @@ var compositePolyfill = (() => {
     return typeof arg === "object" && arg !== null && objectIsComposite(arg);
   }
   Composite.isComposite = isComposite;
+  function debugHashPlainObject(arg) {
+    return hashComposite(Composite(arg));
+  }
   function compositeEqual(a, b) {
     if (a === b) return true;
     const maybeHashA = typeof a === "object" && a !== null ? maybeGetCompositeHash(a) : void 0;
@@ -199,6 +234,7 @@ var compositePolyfill = (() => {
       this.#map.safeClear();
     }
     #get(key) {
+      debugStats.hashStoreGetCalls++;
       const hash = this.#hasher(key);
       const bucket = this.#map.safeGet(hash);
       if (bucket === void 0) {
@@ -211,6 +247,7 @@ var compositePolyfill = (() => {
         if (eq(b, key)) {
           return b;
         }
+        debugStats.collisionChecks++;
       }
       return missing;
     }
@@ -225,11 +262,13 @@ var compositePolyfill = (() => {
       return value;
     }
     set(key) {
+      debugStats.hashStoreSetCalls++;
       const hash = this.#hasher(key);
       let bucket = this.#map.safeGet(hash);
       if (bucket === void 0) {
         bucket = [];
         this.#map.safeSet(hash, bucket);
+        debugStats.hashBucketsCreated++;
       }
       for (let i = 0; i < bucket.length; i++) {
         const k = bucket[i];
@@ -237,8 +276,15 @@ var compositePolyfill = (() => {
           bucket[i] = key;
           return;
         }
+        debugStats.collisionChecks++;
+      }
+      if (bucket.length > 0) {
+        debugStats.collisionInsertions++;
       }
       bucket[bucket.length] = key;
+      if (bucket.length > debugStats.maxBucketSize) {
+        debugStats.maxBucketSize = bucket.length;
+      }
     }
     delete(key) {
       const hash = this.#hasher(key);
@@ -366,6 +412,7 @@ var compositePolyfill = (() => {
   })();
   var keySortArgs = [keySort];
   function hashComposite(input) {
+    debugStats.hashCompositeCalls++;
     const cachedHash2 = getCompositeHash(input);
     if (cachedHash2 !== 0) {
       return cachedHash2;

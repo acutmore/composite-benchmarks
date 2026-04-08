@@ -22,7 +22,10 @@ var compositePolyfill = (() => {
   var index_exports = {};
   __export(index_exports, {
     Composite: () => Composite,
-    install: () => install
+    debugHashPlainObject: () => debugHashPlainObject,
+    getDebugStats: () => getDebugStats,
+    install: () => install,
+    resetDebugStats: () => resetDebugStats
   });
 
   // polyfill/internal/originals.ts
@@ -45,6 +48,35 @@ var compositePolyfill = (() => {
     return is(a === 0 ? 0 : a, b === 0 ? 0 : b);
   }
   var EMPTY = freeze([]);
+  var debugStats = {
+    compositeCalls: 0,
+    newComposites: 0,
+    reusedComposites: 0,
+    bucketsCreated: 0,
+    collisionInsertions: 0,
+    collisionChecks: 0,
+    maxBucketSize: 0
+  };
+  function resetDebugStats() {
+    debugStats.compositeCalls = 0;
+    debugStats.newComposites = 0;
+    debugStats.reusedComposites = 0;
+    debugStats.bucketsCreated = 0;
+    debugStats.collisionInsertions = 0;
+    debugStats.collisionChecks = 0;
+    debugStats.maxBucketSize = 0;
+  }
+  function getDebugStats() {
+    return {
+      compositeCalls: debugStats.compositeCalls,
+      newComposites: debugStats.newComposites,
+      reusedComposites: debugStats.reusedComposites,
+      bucketsCreated: debugStats.bucketsCreated,
+      collisionInsertions: debugStats.collisionInsertions,
+      collisionChecks: debugStats.collisionChecks,
+      maxBucketSize: debugStats.maxBucketSize
+    };
+  }
 
   // polyfill/internal/composite-class.ts
   var __Composite__ = class {
@@ -281,6 +313,7 @@ var compositePolyfill = (() => {
     }
   });
   function Composite(arg) {
+    debugStats.compositeCalls++;
     if (new.target) {
       throw new TypeError("Composite should not be constructed with 'new'");
     }
@@ -308,22 +341,38 @@ var compositePolyfill = (() => {
     if (!cs) {
       cs = [new SafeWeakRef(c)];
       composites.safeSet(hash, cs);
+      debugStats.bucketsCreated++;
+      debugStats.newComposites++;
+      if (debugStats.maxBucketSize < 1) {
+        debugStats.maxBucketSize = 1;
+      }
     } else {
       var emptyI = -1;
+      var liveEntries = 0;
       for (let i = 0; i < cs.length; i++) {
         let ref = cs[i]?.safeDeref();
         if (ref !== void 0) {
+          liveEntries++;
+          debugStats.collisionChecks++;
           if (compositesStructurallyEqual(ref, c, argKeys)) {
+            debugStats.reusedComposites++;
             return ref;
           }
         } else if (emptyI === -1) {
           emptyI = i;
         }
       }
+      debugStats.newComposites++;
+      if (liveEntries > 0) {
+        debugStats.collisionInsertions++;
+      }
       if (emptyI === -1) {
         cs[cs.length] = new SafeWeakRef(c);
       } else {
         cs[emptyI] = new SafeWeakRef(c);
+      }
+      if (cs.length > debugStats.maxBucketSize) {
+        debugStats.maxBucketSize = cs.length;
       }
     }
     fr.register(c, hash);
@@ -336,6 +385,23 @@ var compositePolyfill = (() => {
     return typeof arg === "object" && arg !== null && objectIsComposite(arg);
   }
   Composite.isComposite = isComposite2;
+  function debugHashPlainObject(arg) {
+    const hasher = new MurmurHashStream();
+    const argKeys = ownKeys(arg);
+    apply(sort, argKeys, EMPTY);
+    for (let i = 0; i < argKeys.length; i++) {
+      let k = argKeys[i];
+      let v = arg[k];
+      if (typeof k === "string") {
+        hasher.update(KEY);
+        hasher.update(k);
+        updateHasher(hasher, v);
+      } else {
+        throw new Error("symbol keys not allowed");
+      }
+    }
+    return hasher.digest();
+  }
   function compositeEqual(a, b) {
     if (a === b) return true;
     if (!isComposite2(a) || !isComposite2(b)) {
