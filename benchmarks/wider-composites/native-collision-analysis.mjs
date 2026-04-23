@@ -2,15 +2,14 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const SCRIPT_DIR = path.resolve("benchmarks/wider-composites");
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = path.join(SCRIPT_DIR, "results");
 const OUTPUT_JSON = path.join(OUTPUT_DIR, "native-collision-analysis.json");
 
 // Override with D8=/path/to/d8 environment variable.
-const D8 =
-  process.env.D8 ??
-  "/Users/sonukapoor/Projects/v8-work/v8-composite/out/arm64.release/d8";
+const D8 = process.env.D8 ?? "d8";
 
 const DEFAULT_WIDTHS = [100];
 const D = 88;
