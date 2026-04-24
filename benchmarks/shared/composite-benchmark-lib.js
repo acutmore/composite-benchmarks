@@ -126,6 +126,26 @@
           theSet.add(arr[k]);
         }
       }
+    } else if (testCase === "retained-hit") {
+      let arr = [];
+      loop(D, createKey, (_, key) => {
+        arr[arr.length] = key;
+      });
+
+      for (let k = 0; k < arr.length; k++) {
+        theSet.add(arr[k]);
+      }
+
+      assert(
+        theSet.size === expectedSize(D),
+        "Expected " + expectedSize(D) + ", got " + theSet.size,
+      );
+
+      for (let i = 0; i < N; i++) {
+        for (let k = 0; k < arr.length; k++) {
+          assert(theSet.has(arr[k]), "Expected retained key hit");
+        }
+      }
     } else {
       throw new Error("unknown testcase: " + testCase);
     }
