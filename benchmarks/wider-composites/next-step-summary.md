@@ -19,7 +19,9 @@ The current benchmark shape (`creation` loop over a single mutated object) prima
   - hashing / canonicalization
   - intern lookup (mostly miss + create)
 
-It does **not strongly exercise retained-key hit-path behavior**.
+The low collision counts reported from the native instrumentation suggest that collision
+handling is unlikely to be the primary source of the slowdown as the property count
+grows.
 
 ### Likely dominant costs
 
@@ -36,12 +38,15 @@ It does **not strongly exercise retained-key hit-path behavior**.
 
 ## Next step direction
 
-Based on these results, a useful next benchmark dimension would be:
+Based on the follow-up discussion, the next investigation should focus on profiling and
+implementation shape rather than adding another benchmark variant.
 
-- separating **create-path vs retained-hit-path behavior**, e.g.
-  - reuse of previously created composite keys
-  - repeated lookups against stable key sets
+- collect `--perf` data for the native implementation to identify where the time is
+  actually spent
+- use that profile to distinguish intrinsic costs of the composite-key approach from
+  inefficient implementation details
+- compare the current single internal hash map with an alternative trie-of-maps design,
+  which should have different scaling characteristics as property count grows
 
-This would help isolate:
-- intern table hit cost vs creation cost
-- impact of key reuse vs recomputation
+This would help decide whether optimization work should target the existing hash-map
+implementation or explore a different internal representation.
