@@ -37,15 +37,26 @@
   const { width, D, N } = parseWiderCliArgs(cliArgs);
   var offset = Number.MAX_SAFE_INTEGER - D;
 
+  let fnBody = "";
+  for (let i = 3; i < width; i++) {
+    // Pad the string so the properties are sorted strings
+    fnBody += `obj.${"p" + (i.toString().padStart(3, "0"))} = "${"fixed-string-value-" + i}";\n`;
+  }
+  // Generate this code as repeated dynamic property creation
+  // is more likely to put the object into "slow dictionary mode".
+  const addProps = new Function("obj", `
+    "use strict";
+    ${fnBody};
+    return obj;
+  `);
+
   function widerLoop(D, createKey, cb) {
     var obj = {};
     obj.a = 0;
     obj.b = 0;
     obj.c = 0;
 
-    for (var i = 3; i < width; i++) {
-      obj["p" + i] = "fixed-string-value-" + i;
-    }
+    addProps(obj);
 
     for (var a = 0; a < D; a++) {
       obj.a = offset + a;
