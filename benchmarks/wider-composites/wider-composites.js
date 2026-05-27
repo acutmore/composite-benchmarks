@@ -7,10 +7,10 @@
   // CONFIG:
   // ===============================
   var technique; // uncomment below to select
-  technique = "json";
+  // technique = "json";
   // technique = "json-custom";
   // technique = "bespoke-js";
-  // technique = "native";
+  technique = "native";
   // technique = "polyfill";
   // technique = "polyfill-interned";
   // ===============================
@@ -40,7 +40,7 @@
   let fnBody = "";
   for (let i = 3; i < width; i++) {
     // Pad the string so the properties are sorted strings
-    fnBody += `obj.${"p" + (i.toString().padStart(3, "0"))} = "${"fixed-string-value-" + i}";\n`;
+    fnBody += `obj.${"a" + (i.toString().padStart(3, "0"))} = "${"fixed-string-value-" + i}";\n`;
   }
   // Generate this code as repeated dynamic property creation
   // is more likely to put the object into "slow dictionary mode".
