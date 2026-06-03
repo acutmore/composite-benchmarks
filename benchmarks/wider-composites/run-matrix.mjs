@@ -8,10 +8,11 @@ const BENCHMARK_JS = path.join(SCRIPT_DIR, "wider-composites.js");
 const OUTPUT_DIR = path.join(SCRIPT_DIR, "results");
 const OUTPUT_JSON = path.join(OUTPUT_DIR, "wider-composites-matrix.json");
 
-const COMPOSITE_D8 =
-  "/Users/sonukapoor/projects/v8-work/v8-composite/out/x64.release/d8";
-const INTERN_D8 =
-  "/Users/sonukapoor/projects/v8-work/v8-composites-intern/out/x64.release/d8";
+const COMPOSITE_D8 = process.env.COMPOSITE_D8;
+const INTERN_D8 = process.env.INTERN_D8;
+
+if (!COMPOSITE_D8) throw new Error("COMPOSITE_D8 environment variable is required");
+if (!INTERN_D8) throw new Error("INTERN_D8 environment variable is required");
 
 const WARMUP = 3;
 
