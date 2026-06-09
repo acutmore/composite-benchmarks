@@ -1,12 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const BENCHMARK_JS = path.join(SCRIPT_DIR, "wider-composites.js");
 const OUTPUT_DIR = path.join(SCRIPT_DIR, "results");
-const OUTPUT_JSON = path.join(OUTPUT_DIR, "wider-composites-matrix.json");
 
 const COMPOSITE_D8 = process.env.COMPOSITE_D8;
 const INTERN_D8 = process.env.INTERN_D8;
@@ -27,7 +26,7 @@ const WORKLOAD_CONFIGS = [
   {
     key: "fill-set",
     testCase: "fill-set",
-    D: 50,
+    D: 88,
     widths: [5, 20, 50, 100],
     nValues: [1],
   },
@@ -48,6 +47,11 @@ const TECHNIQUES = [
 ];
 
 function runOne(d8Path, technique, testCase, width, d, n, exportPath) {
+  if (existsSync(exportPath)) {
+    console.log(`  Skipping (output exists): ${path.basename(exportPath)}`);
+    return JSON.parse(readFileSync(exportPath, "utf8")).results[0];
+  }
+
   execFileSync(
     "hyperfine",
     [
@@ -95,33 +99,24 @@ function runTechniqueWorkload(d8Path, technique, workloadKey, techniqueKey, test
 function main() {
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const aggregate = {
-    benchmark: "wider-composites",
-    generated_at: new Date().toISOString(),
-    config: {
-      warmup: WARMUP,
-      benchmark_js: BENCHMARK_JS,
-      workloads: WORKLOAD_CONFIGS.map((w) => ({
-        key: w.key,
-        testCase: w.testCase,
-        d: w.D,
-        widths: w.widths,
-        nValues: w.nValues,
-      })),
-    },
-    builds: {
-      composite: COMPOSITE_D8,
-      intern_and_json_baselines: INTERN_D8,
-    },
-    workloads: {},
-  };
-
   for (const workload of WORKLOAD_CONFIGS) {
     console.log(`\n=== ${workload.key} ===\n`);
-    aggregate.workloads[workload.key] = {
-      testCase: workload.testCase,
-      widths: workload.widths,
-      nValues: workload.nValues,
+
+    const aggregate = {
+      benchmark: `wider-composites-${workload.key}`,
+      generated_at: new Date().toISOString(),
+      config: {
+        warmup: WARMUP,
+        benchmark_js: BENCHMARK_JS,
+        testCase: workload.testCase,
+        d: workload.D,
+        widths: workload.widths,
+        nValues: workload.nValues,
+      },
+      builds: {
+        composite: COMPOSITE_D8,
+        intern_and_json_baselines: INTERN_D8,
+      },
       techniques: {},
     };
 
@@ -138,17 +133,18 @@ function main() {
         workload.nValues,
       );
 
-      aggregate.workloads[workload.key].techniques[entry.key] = {
+      aggregate.techniques[entry.key] = {
         label: entry.label,
         technique: entry.technique,
         d8_path: entry.d8,
         results,
       };
     }
-  }
 
-  writeFileSync(OUTPUT_JSON, JSON.stringify(aggregate, null, 2), "utf8");
-  console.log(`\nSaved aggregate results to:\n${OUTPUT_JSON}\n`);
+    const outputPath = path.join(OUTPUT_DIR, `wider-composites-${workload.key}.json`);
+    writeFileSync(outputPath, JSON.stringify(aggregate, null, 2), "utf8");
+    console.log(`Saved results to: ${outputPath}`);
+  }
 }
 
 main();
