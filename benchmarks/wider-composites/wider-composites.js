@@ -4,37 +4,32 @@
   require("../shared/composite-benchmark-lib.js");
   const { runStandardBenchmark } = globalThis.__compositeBenchmarkLib;
 
-  // CONFIG:
-  // ===============================
-  var technique; // uncomment below to select
-  technique = "json";
-  // technique = "json-custom";
-  // technique = "bespoke-js";
-  // technique = "native";
-  // technique = "polyfill";
-  // technique = "polyfill-interned";
-  // ===============================
-  var testCase; // uncomment below to select
-  testCase = "creation";
-  // testCase = "fill-set";
-  // testCase = "fill-set-reads";
-  // ===============================
-
   function parseWiderCliArgs(cliArgs) {
-    const values = cliArgs
-      .map((v) => parseInt(v, 10))
-      .filter((v) => isFinite(v));
+    const positional = [];
+    var technique = "json";
+    var testCase = "creation";
 
-    const [width = 5, D = 50, N = 1] = values;
+    for (var i = 0; i < cliArgs.length; i++) {
+      if (cliArgs[i] === "--technique") {
+        technique = cliArgs[++i];
+      } else if (cliArgs[i] === "--testCase") {
+        testCase = cliArgs[++i];
+      } else {
+        var n = parseInt(cliArgs[i], 10);
+        if (isFinite(n)) positional.push(n);
+      }
+    }
+
+    const [width = 5, D = 50, N = 1] = positional;
 
     if (width < 3) throw new Error("width must be >= 3");
     if (D < 1) throw new Error("D must be >= 1");
     if (N < 1) throw new Error("N must be >= 1");
 
-    return { width, D, N };
+    return { width, D, N, technique, testCase };
   }
 
-  const { width, D, N } = parseWiderCliArgs(cliArgs);
+  const { width, D, N, technique, testCase } = parseWiderCliArgs(cliArgs);
   var offset = Number.MAX_SAFE_INTEGER - D;
 
   let fnBody = "";
